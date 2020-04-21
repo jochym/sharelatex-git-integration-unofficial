@@ -207,13 +207,9 @@ def files_changed():
 def fetch_updates(url, email, password):
     file_name = 'sharelatex.zip'
 
-    if 'read' in url:
-        p = re.compile("(http.*)/read/[a-zA-Z0-9]*", re.IGNORECASE)
-        base_url = p.search(url).group(1)
-    else :       
-        base_url = extract_base_url(url)
-        login_url = "{}/login".format(base_url)
-        download_url = "{}/download/zip".format(url)
+    base_url = extract_base_url(url)
+    login_url = "{}/login".format(base_url)
+    download_url = "{}/download/zip".format(url)
     
     Logger().log("Getting data from: {}...".format(url))
 
@@ -228,6 +224,7 @@ def fetch_updates(url, email, password):
             csrf = BeautifulSoup(r.text, 'html.parser').find('input', { 'name' : '_csrf' })['value']
             session.post(login_url, { '_csrf' : csrf , 'email' : email , 'password' : password })
         else :
+            # Try as this is a read-only url
             r = session.get(url)
             t = BeautifulSoup(r.text, 'html.parser').find(lambda t: t.name=='script' and 'window.project_id' in t.text )
             project_id = [l for l in t.text.split('\n') if 'project_id' in l][0].split('"')[1]
@@ -396,7 +393,7 @@ def go(url, email, password, message, push, dont_commit):
 def normalize_input(i):
     if 'http:' in i.lower() or 'https:' in i.lower():
         try:
-            p = re.compile("(http.*/project/[a-zA-Z0-9]*).*", re.IGNORECASE)
+            p = re.compile("(http.*/((project)|(read))/[a-zA-Z0-9]*).*", re.IGNORECASE)
             return p.search(i).group(1)
         except:
             Logger().fatal_error('Unrecognized url supplied ({})'.format(i))
@@ -412,7 +409,7 @@ def normalize_input(i):
 #------------------------------------------------------------------------------
 def extract_base_url(url):
     try:
-        p = re.compile("(http.*)/project/[a-zA-Z0-9]*", re.IGNORECASE)
+        p = re.compile("(http.*)/((project)|(read))/[a-zA-Z0-9]*", re.IGNORECASE)
         return p.search(url).group(1)
     except:
         Logger().fatal_error('Unexpected url format ({}), unable to extract service\'s base url'.format(url))
@@ -435,8 +432,7 @@ def parse_input():
     (options, args) = parser.parse_args()
 
     if len(args) == 1:
-        #url = normalize_input(args[0])
-        url = args[0]
+        url = normalize_input(args[0])
     elif len(args) > 1:
         parser.error('Too many arguments.')
     else:
