@@ -207,11 +207,15 @@ def files_changed():
 def fetch_updates(url, email, password):
     file_name = 'sharelatex.zip'
 
-    base_url = extract_base_url(url)
-    login_url = "{}/login".format(base_url)
-    download_url = "{}/download/zip".format(url)
+    if 'read' in url:
+        p = re.compile("(http.*)/read/[a-zA-Z0-9]*", re.IGNORECASE)
+        base_url = p.search(url).group(1)
+    else :       
+        base_url = extract_base_url(url)
+        login_url = "{}/login".format(base_url)
+        download_url = "{}/download/zip".format(url)
     
-    Logger().log("Downloading files from {}...".format(download_url))
+    Logger().log("Getting data from: {}...".format(url))
 
     try:
         session = requests.Session()
@@ -223,6 +227,13 @@ def fetch_updates(url, email, password):
             r = session.get(login_url)
             csrf = BeautifulSoup(r.text, 'html.parser').find('input', { 'name' : '_csrf' })['value']
             session.post(login_url, { '_csrf' : csrf , 'email' : email , 'password' : password })
+        else :
+            r = session.get(url)
+            t = BeautifulSoup(r.text, 'html.parser').find(lambda t: t.name=='script' and 'window.project_id' in t.text )
+            project_id = [l for l in t.text.split('\n') if 'project_id' in l][0].split('"')[1]
+            download_url = f'{base_url}/project/{project_id}/download/zip'
+        
+        Logger().log("Downloading files from {}...".format(download_url))
 
         r = session.get(download_url, stream=True)
         with open(file_name, 'wb') as f:
@@ -424,7 +435,8 @@ def parse_input():
     (options, args) = parser.parse_args()
 
     if len(args) == 1:
-        url = normalize_input(args[0])
+        #url = normalize_input(args[0])
+        url = args[0]
     elif len(args) > 1:
         parser.error('Too many arguments.')
     else:
