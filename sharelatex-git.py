@@ -226,8 +226,10 @@ def fetch_updates(url, email, password):
         else :
             # Try as this is a read-only url
             r = session.get(url)
-            t = BeautifulSoup(r.text, 'html.parser').find(lambda t: t.name=='script' and 'window.project_id' in t.text )
-            project_id = [l for l in t.text.split('\n') if 'project_id' in l][0].split('"')[1]
+            csrf = BeautifulSoup(r.text, 'html.parser').find(lambda t: t.name=='script' and 'window.csrfToken' in t.text )
+            csrf = csrf.text.split('=')[1].split(';')[0].split('"')[1]
+            r = session.post(url + '/grant', { '_csrf' : csrf })
+            project_id = r.text.split(',')[0].split(':')[1].split('"')[1].split('/')[-1]
             download_url = f'{base_url}/project/{project_id}/download/zip'
         
         Logger().log("Downloading files from {}...".format(download_url))
